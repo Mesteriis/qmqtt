@@ -214,7 +214,7 @@ def GetTokens(source):
         elif c == "'":                           # Find char.
             token_type = CONSTANT
             i = _GetChar(source, start, i)
-        elif c == '#':                           # Find pre-processor command.
+        elif c == '#':                   # Find pre-processor command.
             token_type = PREPROCESSOR
             got_if = source[i:i+3] == '#if' and source[i+3:i+4].isspace()
             if got_if:
@@ -232,7 +232,7 @@ def GetTokens(source):
                 i4 = source.find('"', i)
                 # NOTE(nnorwitz): doesn't handle comments in #define macros.
                 # Get the first important symbol (newline, comment, EOF/end).
-                i = min([x for x in (i1, i2, i3, i4, end) if x != -1])
+                i = min(x for x in (i1, i2, i3, i4, end) if x != -1)
 
                 # Handle #include "dir//foo.h" properly.
                 if source[i] == '"':
@@ -240,7 +240,7 @@ def GetTokens(source):
                     assert i > 0
                     continue
                 # Keep going if end of the line and the line ends with \.
-                if not (i == i1 and source[i-1] == '\\'):
+                if i != i1 or source[i - 1] != '\\':
                     if got_if:
                         condition = source[start+4:i].lstrip()
                         if (condition.startswith('0') or

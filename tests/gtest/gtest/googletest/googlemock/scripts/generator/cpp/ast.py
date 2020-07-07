@@ -284,10 +284,7 @@ class Typedef(_GenericDeclaration):
     def Requires(self, node):
         # TODO(nnorwitz): handle namespaces, etc.
         name = node.name
-        for token in self.alias:
-            if token is not None and name == token.name:
-                return True
-        return False
+        return any(token is not None and name == token.name for token in self.alias)
 
     def __str__(self):
         suffix = '%s, %s' % (self.name, self.alias)
@@ -964,8 +961,7 @@ class AstBuilder(object):
             assert token.token_type == tokenize.SYNTAX, token
             if token.name == '<':
                 # Handle templatized dtors.
-                template_portion = [token]
-                template_portion.extend(self._GetMatchingChar('<', '>'))
+                template_portion = [token, *self._GetMatchingChar('<', '>')]
                 token = self._GetNextToken()
             assert token.token_type == tokenize.SYNTAX, token
             assert token.name == '(', token
@@ -981,8 +977,8 @@ class AstBuilder(object):
             name = return_type_and_name.pop()
         elif name.name == ']':
             rt = return_type_and_name
-            assert rt[-1].name == '[', return_type_and_name
-            assert rt[-2].name == 'operator', return_type_and_name
+            assert rt[-1].name == '[', rt
+            assert rt[-2].name == 'operator', rt
             name_seq = return_type_and_name[-2:]
             del return_type_and_name[-2:]
             name = tokenize.Token(tokenize.NAME, 'operator[]',
@@ -1041,7 +1037,7 @@ class AstBuilder(object):
         # Handle ctor initializers.
         if token.name == ':':
             # TODO(nnorwitz): anything else to handle for initializer list?
-            while token.name != ';' and token.name != '{':
+            while token.name not in [';', '{']:
                 token = self._GetNextToken()
 
         # Handle pointer to functions that are really data but look
@@ -1083,17 +1079,14 @@ class AstBuilder(object):
             if token.name == '=':
                 token = self._GetNextToken()
 
-                if token.name == 'default' or token.name == 'delete':
-                    # Ignore explicitly defaulted and deleted special members
-                    # in C++11.
-                    token = self._GetNextToken()
-                else:
+                if token.name not in ['default', 'delete']:
                     # Handle pure-virtual declarations.
                     assert token.token_type == tokenize.CONSTANT, token
                     assert token.name == '0', token
                     modifiers |= FUNCTION_PURE_VIRTUAL
-                    token = self._GetNextToken()
-
+                # Ignore explicitly defaulted and deleted special members
+                # in C++11.
+                token = self._GetNextToken()
             if token.name == '[':
                 # TODO(nnorwitz): store tokens and improve parsing.
                 # template <typename T, size_t N> char (&ASH(T (&seq)[N]))[N];
@@ -1243,9 +1236,7 @@ class AstBuilder(object):
                     t0 = name_tokens[0]
                     struct = tokenize.Token(tokenize.NAME, 'struct',
                                             t0.start-7, t0.start-2)
-                    type_and_name = [struct]
-                    type_and_name.extend(name_tokens)
-                    type_and_name.extend((var_token, next_token))
+                    type_and_name = [struct, *name_tokens, *(var_token, next_token)]
                     return self._GetMethod(type_and_name, 0, None, False)
                 assert temp.name == ';', (temp, name_tokens, var_token)
             if is_syntax or (is_variable and not self._handling_typedef):
@@ -1381,7 +1372,7 @@ class AstBuilder(object):
                 tokens.append(name)
                 name = tokens[1]
         new_type = tokens
-        if tokens and isinstance(tokens[0], tokenize.Token):
+        if new_type and isinstance(new_type[0], tokenize.Token):
             new_type = self.converter.ToType(tokens)[0]
         return Typedef(indices.start, indices.end, name.name,
                        new_type, self.namespace_stack)

@@ -145,7 +145,7 @@ def FuseGMockH(gmock_root, output_dir):
           # gtest headers are fused into gtest/gtest.h.
 
           # There is no need to #include gtest.h twice.
-          if not gtest.GTEST_H_SEED in processed_files:
+          if gtest.GTEST_H_SEED not in processed_files:
             processed_files.add(gtest.GTEST_H_SEED)
             output_file.write('#include "%s"\n' % (gtest.GTEST_H_OUTPUT,))
         else:
